@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         LowK3y Crime Companion
 // @namespace    https://github.com/5cyp4csmpb-ctrl/Lowkey-crime-companion
-// @version      0.3.2
-// @description  Read-only inline crime skill badges; hides uncertain values. No panels or buttons.
+// @version      0.3.3
+// @description  Temporary read-only inline skill diagnostic for Torn PDA; no panels or buttons.
 // @match        https://www.torn.com/*
 // @match        https://torn.com/*
 // @run-at       document-end
@@ -100,6 +100,30 @@
     if(found.length===2&&found[1]===found[0]+1)return found[0];
     return null;
   }
+  function diagnostic(title){
+    const target='card skimming';
+    if((title.textContent||'').trim().toLowerCase()!==target)return;
+    // Look only in compact ancestors to avoid unrelated crime statistics.
+    let root=title.parentElement;
+    let candidate=null;
+    for(let i=0;i<6&&root;i++,root=root.parentElement){
+      const rect=root.getBoundingClientRect();
+      if(rect.width<200||rect.height<45||rect.height>170)continue;
+      const bars=root.querySelectorAll('[class*="progress" i],[class*="skill" i],[role="progressbar"]');
+      const numeric=[...root.querySelectorAll('*')].filter(e=>e.children.length===0&&/^(100|[1-9]?\\d)$/.test((e.textContent||'').trim())).map(e=>Number(e.textContent.trim()));
+      candidate={bars:bars.length,nums:[...new Set(numeric)].slice(0,8)};
+      if(bars.length&&numeric.length)break;
+    }
+    if(!candidate)return;
+    let badge=title.nextElementSibling;
+    if(!badge?.classList.contains('lk3y-cc-debug')){
+      badge=document.createElement('span');badge.className='lk3y-cc-debug';
+      badge.style.cssText='display:inline-block;margin-left:5px;padding:1px 4px;background:#273029;color:#d5e5d5;border:1px solid #668066;border-radius:3px;font:10px Arial,sans-serif;white-space:nowrap;pointer-events:none';
+      title.insertAdjacentElement('afterend',badge);
+    }
+    const value='DBG B'+candidate.bars+' N'+(candidate.nums.join(',')||'-');
+    if(badge.textContent!==value)badge.textContent=value;
+  }
   function scan(){
     if(!isCrimePage())return;
     const nodes=document.querySelectorAll('h1,h2,h3,h4,span,div');
@@ -110,6 +134,7 @@
       if(!names.has(name))continue;
       const bounds=title.getBoundingClientRect();
       if(bounds.width<35||bounds.width>350||bounds.height<12||bounds.height>80)continue;
+      diagnostic(title);
       const card=candidateCard(title);
       if(!card)continue;
       const skill=detectSkill(card,title);
