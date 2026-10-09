@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LowK3y Crime Companion
 // @namespace    https://github.com/5cyp4csmpb-ctrl/Lowkey-crime-companion
-// @version      0.1.1
+// @version      0.1.2
 // @description  Subtle read-only contextual help for Torn Crimes 2.0, including Torn PDA.
 // @match        https://www.torn.com/*
 // @match        https://torn.com/*
@@ -17,8 +17,8 @@
   const crimes = ['Search for Cash','Bootlegging','Graffiti','Shoplifting','Pickpocketing','Card Skimming','Burglary','Hustling','Disposal','Cracking','Forgery','Scamming','Arson','Bounty Hunting'];
   let timer;
   function onCrimesPage() {
-    return (location.pathname.toLowerCase().includes('loader.php') && new URLSearchParams(location.search).get('sid') === 'crimes')
-      || location.pathname.toLowerCase().includes('crimes');
+    const url = (location.pathname + location.search + location.hash).toLowerCase();
+    return url.includes('crimes') || url.includes('sid=crimes') || url.includes('sid=crime');
   }
   function findCrime() {
     const headings = [...document.querySelectorAll('h1,h2,h3,[class*="title"],[class*="heading"]')]
@@ -29,8 +29,9 @@
   function mount() {
     const existing = document.getElementById(ID);
     if (!onCrimesPage()) { existing?.remove(); return; }
-    const anchor = document.querySelector('#mainContainer, #main-container, main, .content-wrapper, #content-wrapper');
+    const anchor = document.querySelector('[class*="crimeList"], [class*="crimesList"], [class*="crime-list"], [class*="crimes-list"], #mainContainer, #main-container, main, .content-wrapper, #content-wrapper, #content');
     if (!anchor) return;
+    // Keep the companion within Torn's crime content, not the PDA navigation.
     const crime = findCrime();
     if (existing) {
       const label = existing.shadowRoot?.querySelector('[data-crime]');
@@ -49,7 +50,7 @@
     </style><button type="button" class="head" aria-expanded="true"><span>Crime Companion <span class="muted">· <span data-crime>Crimes 2.0</span></span></span><span class="arrow">▾</span></button>
     <div class="body"><div class="hint">Check your current crime skill and nerve before choosing your next action. Prioritise progress towards your own goals.</div>
     <div class="muted">Contextual recommendations and verified calculators will be added in later builds. This version does not read or estimate your skill values.</div>
-    <div class="foot">LowK3y Industries · v0.1.1 · advisory only</div></div>`;
+    <div class="foot">LowK3y Industries · v0.1.2 · advisory only</div></div>`;
     const button = shadow.querySelector('button');
     const body = shadow.querySelector('.body');
     const arrow = shadow.querySelector('.arrow');
@@ -64,6 +65,7 @@
   function schedule() { clearTimeout(timer); timer = setTimeout(mount, 250); }
   const observer = new MutationObserver(schedule);
   observer.observe(document.documentElement, {childList:true, subtree:true});
+  setInterval(schedule, 4000);
   window.addEventListener('hashchange', schedule);
   window.addEventListener('popstate', schedule);
   mount();
