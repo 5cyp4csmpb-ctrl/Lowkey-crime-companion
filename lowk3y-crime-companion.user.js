@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LowK3y Crime Companion
 // @namespace    https://github.com/5cyp4csmpb-ctrl/Lowkey-crime-companion
-// @version      0.3.1
+// @version      0.3.2
 // @description  Read-only inline crime skill badges; hides uncertain values. No panels or buttons.
 // @match        https://www.torn.com/*
 // @match        https://torn.com/*
@@ -52,7 +52,7 @@
   }
   function detectSkill(card,title){
     const values=new Set();
-    // Only explicit skill attributes or clearly labelled skill text are trusted.
+    // Preserve the explicit skill-attribute detection that already recognises mastered crimes.
     const nodes=card.querySelectorAll('[aria-label],[title],[data-skill],[data-level],[aria-valuenow],[class*="skill" i]');
     for(const node of nodes){
       if(node===title||node.contains(title)||node.classList.contains(cls))continue;
@@ -71,7 +71,34 @@
         if(n!==null)values.add(n);
       }
     }
-    return values.size===1?[...values][0]:null;
+    if(values.size===1)return [...values][0];
+    if(values.size>1)return null;
+
+    // Crime progress bars have numbered end badges. Only use a badge if its
+    // class/label identifies it as a skill or level indicator.
+    const progressNodes=card.querySelectorAll('[class*="progress" i],[class*="skillBar" i],[class*="skill-bar" i],[role="progressbar"]');
+    const badgeValues=new Set();
+    for(const progress of progressNodes){
+      const region=progress.parentElement;
+      if(!region)continue;
+      const candidates=region.querySelectorAll('[class*="level" i],[class*="badge" i],[class*="skill" i],[title],[aria-label]');
+      for(const badge of candidates){
+        if(badge===progress||badge.contains(progress)||badge.classList.contains(cls))continue;
+        const label=[badge.className,badge.getAttribute('title'),badge.getAttribute('aria-label')].join(' ');
+        if(!/skill|level|badge/i.test(label))continue;
+        const rect=badge.getBoundingClientRect();
+        if(rect.width<8||rect.width>90||rect.height<8||rect.height>65)continue;
+        const raw=(badge.textContent||'').trim();
+        if(!/^(100|[1-9]?\\d)$/.test(raw))continue;
+        badgeValues.add(Number(raw));
+      }
+    }
+    // A bar may show current and next levels; if two distinct values exist,
+    // choose the lower only when they are adjacent (e.g. 71 and 72).
+    const found=[...badgeValues].sort((a,b)=>a-b);
+    if(found.length===1)return found[0];
+    if(found.length===2&&found[1]===found[0]+1)return found[0];
+    return null;
   }
   function scan(){
     if(!isCrimePage())return;
